@@ -1,5 +1,4 @@
-#! /usr/bin/env python
-# -*- coding: utf_8 -*-
+#! /usr/bin/env python3
 #
 # This is DVIasm, a DVI utility for editing DVI files directly.
 #
@@ -71,7 +70,7 @@ def warning(msg):
   sys.stderr.write('%s\n' % msg)
 
 def BadDVI(msg):
-  raise AttributeError, 'Bad DVI file: %s!' % msg
+  raise AttributeError('Bad DVI file: %s!' % msg)
 
 def GetByte(fp): # { returns the next byte, unsigned }
   try: return ord(fp.read(1))
@@ -84,34 +83,34 @@ def SignedByte(fp): # { returns the next byte, signed }
   else: return b - 256
 
 def Get2Bytes(fp): # { returns the next two bytes, unsigned }
-  try: a, b = map(ord, fp.read(2))
+  try: a, b = fp.read(2)
   except: BadDVI('Failed to Get2Bytes()')
   return (a << 8) + b
 
 def SignedPair(fp): # {returns the next two bytes, signed }
-  try: a, b = map(ord, fp.read(2))
+  try: a, b = fp.read(2)
   except: BadDVI('Failed to SignedPair()')
   if a < 128: return (a << 8) + b
   else: return ((a - 256) << 8) + b
 
 def Get3Bytes(fp): # { returns the next three bytes, unsigned }
-  try: a, b, c = map(ord, fp.read(3))
+  try: a, b, c = fp.read(3)
   except: BadDVI('Failed to Get3Bytes()')
   return (((a << 8) + b) << 8) + c
 
 def SignedTrio(fp): # { returns the next three bytes, signed }
-  try: a, b, c = map(ord, fp.read(3))
+  try: a, b, c = fp.read(3)
   except: BadDVI('Failed to SignedTrio()')
   if a < 128: return (((a << 8) + b) << 8) + c
   else: return ((((a - 256) << 8) + b) << 8) + c
 
 def Get4Bytes(fp): # { returns the next four bytes, unsigned }
-  try: a, b, c, d = map(ord, fp.read(4))
+  try: a, b, c, d = fp.read(4)
   except: BadDVI('Failed to Get4Bytes()')
   return (((((a << 8) + b) << 8) + c) << 8) + d
 
 def SignedQuad(fp): # { returns the next four bytes, signed }
-  try: a, b, c, d = map(ord, fp.read(4))
+  try: a, b, c, d = fp.read(4)
   except: BadDVI('Failed to get SignedQuad()')
   if a < 128: return (((((a << 8) + b) << 8) + c) << 8) + d
   else: return ((((((a - 256) << 8) + b) << 8) + c) << 8) + d
@@ -202,7 +201,7 @@ def PutStrUTF8(t): # unsed in Dump()
   s = ''
   if is_subfont:
     for o in t:
-      s += unichr((subfont_idx << 8) + o).encode('utf8')
+      s += chr((subfont_idx << 8) + o).encode('utf8')
   else: # not the case of subfont
     for o in t:
       if o == 92:         s += '\\\\'
@@ -210,7 +209,7 @@ def PutStrUTF8(t): # unsed in Dump()
       elif o < 128:       s += ('\\x%02x' % o)
       elif is_ptex:
         s += ''.join(['\x1b$B', chr(o/256), chr(o%256)]).decode('iso2022-jp').encode('utf8')
-      else:               s += unichr(o).encode('utf8')
+      else:               s += chr(o).encode('utf8')
   return "'%s'" % s
 
 def PutStrSJIS(t): # unsed in Dump()
@@ -270,7 +269,7 @@ class DVI(object):
   # Load: DVI -> Internal Format
   ##########################################################
   def Load(self, fn):
-    fp = file(fn, 'rb')
+    fp = open(fn, 'rb')
     self.LoadFromFile(fp)
     fp.close()
 
@@ -284,7 +283,7 @@ class DVI(object):
     while loc >= 0:
       fp.seek(loc)
       if GetByte(fp) != BOP: BadDVI('byte %d is not bop' % fp.tell())
-      cnt = [SignedQuad(fp) for i in xrange(10)]
+      cnt = [SignedQuad(fp) for i in range(10)]
       loc = SignedQuad(fp)
       page = self.ProcessPage(fp)
       self.pages.insert(0, {'count':cnt, 'content':page})
@@ -371,9 +370,9 @@ class DVI(object):
       f = self.font_def[e]
     except KeyError:
       self.font_def[e] = {'name':n, 'checksum':c, 'scaled_size':q, 'design_size':d}
-      if q <= 0 or q >= 01000000000:
+      if q <= 0 or q >= 0o1000000000:
         warning("%s---not loaded, bad scale (%d)!" % (n, q))
-      elif d <= 0 or d >= 01000000000:
+      elif d <= 0 or d >= 0o1000000000:
         warning("%s---not loaded, bad design size (%d)!" % (n, d))
     else:
       if f['checksum'] != c:
@@ -553,7 +552,7 @@ class DVI(object):
   # Save: Internal Format -> DVI
   ##########################################################
   def Save(self, fn):
-    fp = file(fn, 'wb')
+    fp = open(fn, 'wb')
     self.SaveToFile(fp)
     fp.close()
 
@@ -640,7 +639,7 @@ class DVI(object):
         s.append(PutByte(len(self.font_def[e]['name'])))
         s.append(self.font_def[e]['name'])
         s.append(PutSignedQuad(self.font_def[e]['index']))
-        print >> sys.stderr, self.font_def[e]['name'], self.font_def[e]['index']
+        print(self.font_def[e]['name'], self.font_def[e]['index'], file=sys.stderr)
         if flags & XDV_FLAG_COLORED: s.append(PutSignedQuad(self.font_def[e]['color']))
         if flags & XDV_FLAG_EXTEND: s.append(PutSignedQuad(self.font_def[e]['extend']))
         if flags & XDV_FLAG_SLANT: s.append(PutSignedQuad(self.font_def[e]['slant']))
@@ -665,7 +664,7 @@ class DVI(object):
   # Parse: Text -> Internal Format
   ##########################################################
   def Parse(self, fn, encoding=''):
-    fp = file(fn, 'r')
+    fp = open(fn, 'r')
     s = fp.read()
     fp.close()
     self.ParseFromString(s, encoding=encoding)
@@ -777,7 +776,7 @@ class DVI(object):
         else:
           is_subfont = False
           try:
-            e = self.font_def.keys()[self.font_def.values().index(f)]
+            e = list(self.font_def.keys())[list(self.font_def.values()).index(f)]
           except:
             e = self.fnt_num
             self.font_def[self.fnt_num] = f
@@ -822,7 +821,7 @@ class DVI(object):
   def AppendFNT1(self):
     f = {'name':cur_font+"%02x"%subfont_idx, 'design_size':cur_dsize, 'scaled_size':cur_ssize, 'checksum':0}
     try:
-      e = self.font_def.keys()[self.font_def.values().index(f)]
+      e = list(self.font_def.keys())[list(self.font_def.values()).index(f)]
     except:
       e = self.fnt_num
       self.font_def[e] = f
@@ -833,7 +832,7 @@ class DVI(object):
   # Dump: Internal Format -> Text
   ##########################################################
   def Dump(self, fn, tabsize=2, encoding=''):
-    fp = file(fn, 'w')
+    fp = open(fn, 'w')
     self.DumpToFile(fp, tabsize=tabsize, encoding=encoding)
     fp.close()
 
@@ -849,7 +848,7 @@ class DVI(object):
     fp.write("numerator: %d\n" % self.numerator)
     fp.write("denominator: %d\n" % self.denominator)
     fp.write("magnification: %d\n" % self.mag)
-    fp.write("comment: %s\n" % repr(self.comment))
+    fp.write("comment: %s\n" % repr(self.comment.decode()))
     # DumpPostamble
     fp.write("\n[postamble]\n")
     fp.write("maxv: %s\n" % self.byconv(self.max_v))
@@ -859,7 +858,7 @@ class DVI(object):
     # DumpFontDefinitions
     fp.write("\n[font definitions]\n")
     for e in sorted(self.font_def.keys()):
-      fp.write("fntdef: %s" % self.font_def[e]['name'])
+      fp.write("fntdef: %s" % self.font_def[e]['name'].decode())
       if self.font_def[e]['design_size'] != self.font_def[e]['scaled_size']:
         fp.write(" (%s) " % self.by_pt_conv(self.font_def[e]['design_size']))
       fp.write(" at %s\n" % self.by_pt_conv(self.font_def[e]['scaled_size']))
@@ -877,7 +876,7 @@ class DVI(object):
           fp.write("push:\n")
           indent += tabsize
         elif cmd[0] == XXX1:
-          fp.write("xxx: %s\n" % repr(cmd[1]))
+          fp.write("xxx: %s\n" % repr(cmd[1].decode()))
         elif cmd[0] == DIR:
           fp.write("dir: %d\n" % cmd[1])
         elif cmd[0] == BEGIN_REFLECT:
@@ -896,7 +895,7 @@ class DVI(object):
           f = self.font_def[cmd[1]]['name']
           z = self.font_def[cmd[1]]['scaled_size']
           if IsFontChanged(f, z):
-            fp.write("fnt: %s " % cur_font)
+            fp.write("fnt: %s " % cur_font.decode())
             if self.font_def[cmd[1]]['design_size'] != self.font_def[cmd[1]]['scaled_size']:
               fp.write("(%s) " % self.by_pt_conv(self.font_def[cmd[1]]['design_size']))
             fp.write("at %s\n" % self.by_pt_conv(cur_ssize))
@@ -1142,7 +1141,7 @@ def IsDVI(fname):
   from os.path import splitext
   if splitext(fname)[1] not in ('.dvi', '.xdv'): return False
   try:
-    fp = file(fname, 'rb')
+    fp = open(fname, 'rb')
     fp.seek(0)
     if GetByte(fp) != PRE: return False
     fp.seek(-4, 2)
